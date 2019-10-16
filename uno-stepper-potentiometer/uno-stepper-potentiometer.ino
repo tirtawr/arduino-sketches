@@ -2,41 +2,38 @@
 #define STEPPER_PIN_2 10
 #define STEPPER_PIN_3 11
 #define STEPPER_PIN_4 12
-#define POTENTIOMETER_PIN 0
+#define POTENTIOMETER_PIN 1
 
 int stepNumber = 0;
 int sensorValue = 0;
-int delayValue = 0;
+int mappedSensorValue = 0;
+int delayValue = 2;
 
 void setup() {
   pinMode(STEPPER_PIN_1, OUTPUT);
   pinMode(STEPPER_PIN_2, OUTPUT);
   pinMode(STEPPER_PIN_3, OUTPUT);
   pinMode(STEPPER_PIN_4, OUTPUT);
-
-  Serial.begin(9600);
 }
 
 void loop() {
   sensorValue = analogRead(POTENTIOMETER_PIN);
-  delayValue = map(sensorValue, 0, 1023, 0, 100 / 5); // lower resolution for smoothness
-  delayValue = delayValue * 5;
+  mappedSensorValue = map(sensorValue, 0, 1023, 2, 98);
 
-  
-  if (delayValue < 2) {
-    delayValue = 2;
+  if (mappedSensorValue > 55) {
+    stepMotor(false);
+    delayValue = 100 - mappedSensorValue;
+  } else if (mappedSensorValue < 45) {
+    stepMotor(true);
+    delayValue = mappedSensorValue;
+  } else {
+    // make the potentiometer more stable in the off position
+    delayValue = 20;
   }
-
-//  Serial.print("delayValue = ");
-//  Serial.print(delayValue);
-//  Serial.print("\n");
-  
-  oneStep(true); 
   delay(delayValue);
 }
 
-
-void oneStep(bool isClockwise) {
+void stepMotor(bool isClockwise) {
   if(isClockwise) {
     switch(stepNumber) {
       case 0:
