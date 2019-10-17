@@ -1,20 +1,21 @@
-#define STEPPER_1_PIN_1 5
-#define STEPPER_1_PIN_2 6
-#define STEPPER_1_PIN_3 7
-#define STEPPER_1_PIN_4 8
-#define STEPPER_2_PIN_1 9
-#define STEPPER_2_PIN_2 10
-#define STEPPER_2_PIN_3 11
-#define STEPPER_2_PIN_4 12
-#define POTENTIOMETER_PIN 1
+#define STEPPER_1_PIN_1 12 //Digital
+#define STEPPER_1_PIN_2 11 //Digital
+#define STEPPER_1_PIN_3 10 //Digital
+#define STEPPER_1_PIN_4 9 //Digital
+#define STEPPER_2_PIN_1 8 //Digital
+#define STEPPER_2_PIN_2 7 //Digital
+#define STEPPER_2_PIN_3 6 //Digital
+#define STEPPER_2_PIN_4 5 //Digital
+#define BUTTON_PIN 2 //Digital
 
-#define STEPPER_DELAY_VALUE 10
-#define STEPPER_ONE_ROTATION_STEPS 1000
+#define STEPPER_DELAY_VALUE 2
+#define STEPPER_ONE_ROTATION_STEPS 3000
 
-int sensorValue = 0;
-int mappedSensorValue = 0;
-int delayValue = 2;
+//Button related globals
+int buttonState = 0;
+int lastButtonState = 0;
 
+//Stepper motor related globals
 int stepperMotor1StepNumber = 0;
 int stepperMotor2StepNumber = 0;
 
@@ -28,14 +29,39 @@ void setup() {
   pinMode(STEPPER_2_PIN_2, OUTPUT);
   pinMode(STEPPER_2_PIN_3, OUTPUT);
   pinMode(STEPPER_2_PIN_4, OUTPUT);
+
+  pinMode(BUTTON_PIN, INPUT);
+
+  Serial.begin(9600);
 }
 
 void loop() {
+
   // TODO: Setup serial com with browser
   // TODO: Setup button press detection
   // TODO: Send button event to browser when button pressed
   // TODO: Rotate motor when event is received from browser
+  if (wasButtonTriggered()) {
+    Serial.println("button was triggered");
+    turnStepperMotor1();
+  }
   delay(2);
+}
+
+boolean wasButtonTriggered() {
+  buttonState = digitalRead(BUTTON_PIN);
+  boolean triggered = false;
+  // compare the buttonState to its previous state
+  if (buttonState != lastButtonState) {
+    if (buttonState == HIGH) {
+      // button went from not_pressed to pressed
+    } else {
+      // button went from pressed to not_pressed
+      triggered = true;
+    }
+  }
+  lastButtonState = buttonState;
+  return triggered;
 }
 
 void turnStepperMotor1 () {
