@@ -1,12 +1,17 @@
-#define STEPPER_1_PIN_1 12 //Digital
-#define STEPPER_1_PIN_2 11 //Digital
-#define STEPPER_1_PIN_3 10 //Digital
-#define STEPPER_1_PIN_4 9 //Digital
-#define STEPPER_2_PIN_1 8 //Digital
-#define STEPPER_2_PIN_2 7 //Digital
-#define STEPPER_2_PIN_3 6 //Digital
-#define STEPPER_2_PIN_4 5 //Digital
+#define STEPPER_1_PIN_1 8 //Digital
+#define STEPPER_1_PIN_2 7 //Digital
+#define STEPPER_1_PIN_3 6 //Digital
+#define STEPPER_1_PIN_4 5 //Digital
+#define STEPPER_2_PIN_1 12 //Digital
+#define STEPPER_2_PIN_2 11 //Digital
+#define STEPPER_2_PIN_3 10 //Digital
+#define STEPPER_2_PIN_4 9 //Digital
 #define BUTTON_PIN 2 //Digital
+
+#define EVENT_BUTTON_PRESSED "BUTTON_PRESSED"
+#define EVENT_DISPENSE_FINISHED "DISPENSE_FINISHED"
+#define EVENT_DISPENSE_TRICK "DISPENSE_TRICK"
+#define EVENT_DISPENSE_TREAT "DISPENSE_TREAT"
 
 #define STEPPER_DELAY_VALUE 2
 #define STEPPER_ONE_ROTATION_STEPS 3000
@@ -36,15 +41,22 @@ void setup() {
 }
 
 void loop() {
-
-  // TODO: Setup serial com with browser
-  // TODO: Setup button press detection
-  // TODO: Send button event to browser when button pressed
   // TODO: Rotate motor when event is received from browser
   if (wasButtonTriggered()) {
-    Serial.println("button was triggered");
-    turnStepperMotor1();
+    Serial.println(EVENT_BUTTON_PRESSED);
+//    turnStepperMotor1();
+//    turnStepperMotor2();
   }
+
+  if (Serial.available() > 0) {   // see if there's incoming serial data
+    String command = Serial.readStringUntil("\r\n"); // read it
+    if (command == EVENT_DISPENSE_TRICK) {
+      turnStepperMotor1();
+    } else if (command == EVENT_DISPENSE_TREAT) {
+      turnStepperMotor2();
+    }
+  }
+  
   delay(2);
 }
 
