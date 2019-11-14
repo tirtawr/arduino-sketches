@@ -41,20 +41,20 @@ void setup() {
 }
 
 void loop() {
-  // TODO: Rotate motor when event is received from browser
   if (wasButtonTriggered()) {
     Serial.println(EVENT_BUTTON_PRESSED);
-//    turnStepperMotor1();
-//    turnStepperMotor2();
   }
 
   if (Serial.available() > 0) {   // see if there's incoming serial data
     String command = Serial.readStringUntil("\r\n"); // read it
     if (command == EVENT_DISPENSE_TRICK) {
       turnStepperMotor1();
+      Serial.println(EVENT_DISPENSE_FINISHED);
     } else if (command == EVENT_DISPENSE_TREAT) {
       turnStepperMotor2();
+      Serial.println(EVENT_DISPENSE_FINISHED);
     }
+    
   }
   
   delay(2);
