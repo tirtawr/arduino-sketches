@@ -10,11 +10,20 @@ int status = WL_IDLE_STATUS;
 IPAddress server(10, 18, 146, 107);
 WiFiClient client;
 
-// Button related globals
+// Control buttons related globals
 String buttonStateUp = "UP";
 String buttonStateDown = "UP";
 String buttonStateLeft = "UP";
 String buttonStateRight = "UP";
+
+// Connection button related globals
+const int ledPin =  LED_BUILTIN;
+int ledState = LOW;
+unsigned long previousMillis = 0;
+const long blinkIntervalSlow = 800;
+const long blinkIntervalFast = 300;
+String buttonStateConnect = "UP";
+String connectionStatus = "disconnected";
 
 void setup() {
   //Initialize serial and wait for port to open:
@@ -25,6 +34,7 @@ void setup() {
 
   // attempt to connect to Wifi network:
   while (status != WL_CONNECTED) {
+    connectionStatus = "CONNECTING";
     Serial.print("Attempting to connect to SSID: ");
     Serial.println(ssid);
     // Connect to WPA/WPA2 network. Change this line if using open or WEP network:
@@ -36,27 +46,55 @@ void setup() {
   Serial.println("Connected to wifi");
   printWifiStatus();
 
-  Serial.println("\nStarting connection to server...");
-  // if you get a connection, report back via serial:
-  if (client.connect(server, 8080)) {
-    Serial.println("connected to server");
-    // Make a TCP request:
-    // Sets client name   
-    client.println("n=TIRTA");
-    client.println("i");
-  }
+  connectToServer();
 
+  // control buttons
   pinMode(2, INPUT_PULLUP);
   pinMode(3, INPUT_PULLUP);
   pinMode(4, INPUT_PULLUP);
   pinMode(5, INPUT_PULLUP);
+
+  // connection button
+  pinMode(12, OUTPUT);
+  pinMode(11, INPUT_PULLUP);
 }
 
 void loop() {
   // put your main code here, to run repeatedly:
   checkButtonStates();
   checkConnection();
+  checkLED();
   delay(4);
+}
+
+void connectToServer() {
+  Serial.println("\nStarting connection to server...");
+  // if you get a connection, report back via serial:
+  if (client.connect(server, 8080)) {
+    Serial.println("connected to server");
+    connectionStatus = "CONNECTED";
+    // Make a TCP request:
+    // Sets client name
+    client.println("n=TIRTA");
+    client.println("i");
+  }
+}
+
+void disconnectFromServer() {
+  Serial.println("Disconnecting from server");
+  client.println("x");
+  connectionStatus = "DISCONNECTED";
+  Serial.println("Disconnected from server");
+}
+
+void onButtonConnectPressed() {
+  if (connectionStatus == "DISCONNECTED") {
+    connectToServer();
+  } else if (connectionStatus == "CONNECTING") {
+    // do nothing
+  } else if (connectionStatus == "CONNECTED") {
+    disconnectFromServer();
+  }
 }
 
 void onButtonPressed(String button) {
@@ -69,6 +107,33 @@ void onButtonPressed(String button) {
     client.println("l");
   } else if (button == "BUTTON_RIGHT") {
     client.println("r");
+  } else if (button == "BUTTON_CONNECT") {
+    onButtonConnectPressed();
+  }
+}
+
+void checkLED() {
+  if (connectionStatus == "DISCONNECTED") {
+    blink(blinkIntervalSlow);
+  } else if (connectionStatus == "CONNECTING") {
+    // Blink fast
+    blink(blinkIntervalFast);
+  } else if (connectionStatus == "CONNECTED") {
+    digitalWrite(12, HIGH);
+  }
+
+}
+
+void blink(long interval) {
+  unsigned long currentMillis = millis();
+  if (currentMillis - previousMillis >= interval) {
+    previousMillis = currentMillis;
+    if (ledState == LOW) {
+      ledState = HIGH;
+    } else {
+      ledState = LOW;
+    }
+    digitalWrite(12, ledState);
   }
 }
 
@@ -89,6 +154,21 @@ void checkButtonStates() {
   checkButtonStateDown();
   checkButtonStateLeft();
   checkButtonStateRight();
+  checkButtonStateConnect();
+}
+
+void checkButtonStateConnect() {
+  int sensorVal = digitalRead(11);
+  String newButtonStateConnect;
+  if (sensorVal == HIGH) {
+    newButtonStateConnect = "UP";
+  } else {
+    newButtonStateConnect = "DOWN";
+  }
+  if (buttonStateConnect == "DOWN" && newButtonStateConnect == "UP") {
+    onButtonPressed("BUTTON_CONNECT");
+  }
+  buttonStateConnect = newButtonStateConnect;
 }
 
 void checkButtonStateUp() {
