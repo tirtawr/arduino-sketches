@@ -28,33 +28,20 @@ String buttonStateRight = "UP";
 // Connection button related globals
 const int ledPin =  LED_BUILTIN;
 int ledState = LOW;
-unsigned long previousMillis = 0;
+unsigned long previousMillisForBlink = 0;
+unsigned long previousMillisForConnection = 0;
 const long blinkIntervalSlow = 400;
 const long blinkIntervalFast = 200;
 String buttonStateConnect = "UP";
-String connectionStatus = "disconnected";
+String connectionStatus = "CONNECTING_WIFI";
+const long connectionInterval = 5000;
 
 void setup() {
   //Initialize serial and wait for port to open:
   Serial.begin(9600);
-  while (!Serial) {
-    ; // wait for serial port to connect. Needed for native USB port only
-  }
 
-  // attempt to connect to Wifi network:
-  while (status != WL_CONNECTED) {
-    connectionStatus = "CONNECTING";
-    Serial.print("Attempting to connect to SSID: ");
-    Serial.println(ssid);
-    // Connect to WPA/WPA2 network. Change this line if using open or WEP network:
-    status = WiFi.begin(ssid, pass);
-
-    // wait 10 seconds for connection:
-    delay(10000);
-  }
-  Serial.println("Connected to wifi");
+  connectToWifi();
   printWifiStatus();
-
   connectToServer();
 
   // control buttons
@@ -76,12 +63,28 @@ void loop() {
   delay(4);
 }
 
+void connectToWifi() {
+  // attempt to connect to Wifi network:
+  while (status != WL_CONNECTED) {
+    unsigned long currentMillis = millis();
+    if (currentMillis - previousMillisForConnection >= connectionInterval) {
+      previousMillisForBlink = currentMillis;
+      Serial.print("Attempting to connect to SSID: ");
+      Serial.println(ssid);
+      // Connect to WPA/WPA2 network. Change this line if using open or WEP network:
+      status = WiFi.begin(ssid, pass);
+    }
+  }
+  connectionStatus = "CONNECTED_WIFI";
+  Serial.println("Connected to wifi");
+}
+
 void connectToServer() {
   Serial.println("\nStarting connection to server...");
   // if you get a connection, report back via serial:
   if (client.connect(server, port)) {
     Serial.println("connected to server");
-    connectionStatus = "CONNECTED";
+    connectionStatus = "CONNECTED_SERVER";
     // Make a TCP request:
     // Sets client name
     client.println("n=TIRTA");
@@ -92,16 +95,18 @@ void connectToServer() {
 void disconnectFromServer() {
   Serial.println("Disconnecting from server");
   client.println("x");
-  connectionStatus = "DISCONNECTED";
+  connectionStatus = "CONNECTED_WIFI";
   Serial.println("Disconnected from server");
 }
 
 void onButtonConnectPressed() {
-  if (connectionStatus == "DISCONNECTED") {
-    connectToServer();
-  } else if (connectionStatus == "CONNECTING") {
+  if (connectionStatus == "CONNECTING_WIFI") {
     // do nothing
-  } else if (connectionStatus == "CONNECTED") {
+  } else if (connectionStatus == "CONNECTED_WIFI") {
+    connectToServer();
+  } else if (connectionStatus == "CONNECTING_SERVER") {
+    // do nothing
+  } else if (connectionStatus == "CONNECTED_SERVER") {
     disconnectFromServer();
   }
 }
@@ -122,21 +127,21 @@ void onButtonPressed(String button) {
 }
 
 void checkLED() {
-  if (connectionStatus == "DISCONNECTED") {
+  if (connectionStatus == "CONNECTING_WIFI") {
     blink(blinkIntervalSlow);
-  } else if (connectionStatus == "CONNECTING") {
-    // Blink fast
+  } else if (connectionStatus == "CONNECTED_WIFI") {
     blink(blinkIntervalFast);
-  } else if (connectionStatus == "CONNECTED") {
+  } else if (connectionStatus == "CONNECTING_SERVER") {
+    blink(blinkIntervalFast);
+  } else if (connectionStatus == "CONNECTED_SERVER") {
     digitalWrite(pinLED, HIGH);
   }
-
 }
 
 void blink(long interval) {
   unsigned long currentMillis = millis();
-  if (currentMillis - previousMillis >= interval) {
-    previousMillis = currentMillis;
+  if (currentMillis - previousMillisForBlink >= interval) {
+    previousMillisForBlink = currentMillis;
     if (ledState == LOW) {
       ledState = HIGH;
     } else {
@@ -153,8 +158,8 @@ void checkConnection() {
     Serial.println("disconnecting from server.");
     client.stop();
 
-    // do nothing forevermore:
-    while (true);
+    connectionStatus = "CONNECTING_WIFI";
+    connectToWifi();
   }
 }
 
