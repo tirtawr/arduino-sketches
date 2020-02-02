@@ -8,7 +8,16 @@ char pass[] = SECRET_PASS;    // your network password (use for WPA, or use as k
 int keyIndex = 0;            // your network key Index number (needed only for WEP)
 int status = WL_IDLE_STATUS;
 IPAddress server(10, 18, 146, 107);
+const int port = 8080;
 WiFiClient client;
+
+// PINS
+const int pinUp = 2;
+const int pinDown = 3;
+const int pinLeft = 5;
+const int pinRight = 4;
+const int pinConnect = 11;
+const int pinLED = 12;
 
 // Control buttons related globals
 String buttonStateUp = "UP";
@@ -20,8 +29,8 @@ String buttonStateRight = "UP";
 const int ledPin =  LED_BUILTIN;
 int ledState = LOW;
 unsigned long previousMillis = 0;
-const long blinkIntervalSlow = 800;
-const long blinkIntervalFast = 300;
+const long blinkIntervalSlow = 400;
+const long blinkIntervalFast = 200;
 String buttonStateConnect = "UP";
 String connectionStatus = "disconnected";
 
@@ -49,14 +58,14 @@ void setup() {
   connectToServer();
 
   // control buttons
-  pinMode(2, INPUT_PULLUP);
-  pinMode(3, INPUT_PULLUP);
-  pinMode(4, INPUT_PULLUP);
-  pinMode(5, INPUT_PULLUP);
+  pinMode(pinUp, INPUT_PULLUP);
+  pinMode(pinDown, INPUT_PULLUP);
+  pinMode(pinLeft, INPUT_PULLUP);
+  pinMode(pinRight, INPUT_PULLUP);
 
   // connection button
-  pinMode(12, OUTPUT);
-  pinMode(11, INPUT_PULLUP);
+  pinMode(pinLED, OUTPUT);
+  pinMode(pinConnect, INPUT_PULLUP);
 }
 
 void loop() {
@@ -70,7 +79,7 @@ void loop() {
 void connectToServer() {
   Serial.println("\nStarting connection to server...");
   // if you get a connection, report back via serial:
-  if (client.connect(server, 8080)) {
+  if (client.connect(server, port)) {
     Serial.println("connected to server");
     connectionStatus = "CONNECTED";
     // Make a TCP request:
@@ -119,7 +128,7 @@ void checkLED() {
     // Blink fast
     blink(blinkIntervalFast);
   } else if (connectionStatus == "CONNECTED") {
-    digitalWrite(12, HIGH);
+    digitalWrite(pinLED, HIGH);
   }
 
 }
@@ -133,7 +142,7 @@ void blink(long interval) {
     } else {
       ledState = LOW;
     }
-    digitalWrite(12, ledState);
+    digitalWrite(pinLED, ledState);
   }
 }
 
@@ -158,7 +167,7 @@ void checkButtonStates() {
 }
 
 void checkButtonStateConnect() {
-  int sensorVal = digitalRead(11);
+  int sensorVal = digitalRead(pinConnect);
   String newButtonStateConnect;
   if (sensorVal == HIGH) {
     newButtonStateConnect = "UP";
@@ -172,7 +181,7 @@ void checkButtonStateConnect() {
 }
 
 void checkButtonStateUp() {
-  int sensorVal = digitalRead(5);
+  int sensorVal = digitalRead(pinUp);
   String newButtonStateUp;
   if (sensorVal == HIGH) {
     newButtonStateUp = "UP";
@@ -186,7 +195,7 @@ void checkButtonStateUp() {
 }
 
 void checkButtonStateDown() {
-  int sensorVal = digitalRead(2);
+  int sensorVal = digitalRead(pinDown);
   String newButtonStateDown;
   if (sensorVal == HIGH) {
     newButtonStateDown = "UP";
@@ -200,7 +209,7 @@ void checkButtonStateDown() {
 }
 
 void checkButtonStateLeft() {
-  int sensorVal = digitalRead(4);
+  int sensorVal = digitalRead(pinLeft);
   String newButtonStateLeft;
   if (sensorVal == HIGH) {
     newButtonStateLeft = "UP";
@@ -214,7 +223,7 @@ void checkButtonStateLeft() {
 }
 
 void checkButtonStateRight() {
-  int sensorVal = digitalRead(3);
+  int sensorVal = digitalRead(pinRight);
   String newButtonStateRight;
   if (sensorVal == HIGH) {
     newButtonStateRight = "UP";
