@@ -7,7 +7,7 @@ char ssid[] = SECRET_SSID;        // your network SSID (name)
 char pass[] = SECRET_PASS;    // your network password (use for WPA, or use as key for WEP)
 int keyIndex = 0;            // your network key Index number (needed only for WEP)
 int status = WL_IDLE_STATUS;
-IPAddress server(10, 18, 146, 107);
+IPAddress server(10, 18, 255, 103);
 const int port = 8080;
 WiFiClient client;
 
