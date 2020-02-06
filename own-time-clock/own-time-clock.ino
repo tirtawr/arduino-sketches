@@ -1,10 +1,18 @@
 #include <RTCZero.h>
 #include <Encoder.h>
+#include <Wire.h>
+#include <Adafruit_SSD1306.h>
+#include <Adafruit_GFX.h>
 
 // Pins
 const int pinEncoderClk = 5;
 const int pinEncoderDt = 6;
 const int pinEncoderSw = 7; // Button
+
+// Display related globals
+#define OLED_ADDR   0x3C
+Adafruit_SSD1306 display(-1);
+String displayText = "HH:MM:SS";
 
 // RTC Related globals
 RTCZero rtc;
@@ -15,7 +23,7 @@ const byte day = 30;
 const byte month = 1;
 const byte year = 20;
 
-// Encoder related globals
+// Encoder related globalshe
 Encoder encoder(pinEncoderClk, pinEncoderDt);
 long oldEncoderPosition  = -999;
 String buttonState = "BUTTON_UP";
@@ -28,6 +36,7 @@ void setup() {
   Serial.begin(9600);
   setupRTC();
   pinMode(pinEncoderSw, INPUT);
+  setupDisplay();
 }
 
 void loop() {
@@ -35,6 +44,7 @@ void loop() {
   checkInterval();
   checkEncoderRotation();
   checkEncoderButton();
+  printDisplay();
   delay(4);
 }
 
@@ -85,14 +95,21 @@ void onButtonPressed() {
 }
 
 void printTime(RTCZero rtc) {
-  Serial.println(getFormattedTime(rtc));
+  Serial.println(getFormattedTimeForSerialMonitor(rtc));
+  displayText = getFormattedTimeForDisplay(rtc);
 }
 
-String getFormattedTime(RTCZero rtc) {
+String getFormattedTimeForSerialMonitor(RTCZero rtc) {
   return twoDigit(rtc.getDay()) + "/" +
          twoDigit(rtc.getMonth()) + "/" +
          twoDigit(rtc.getYear()) + " " +
          twoDigit(rtc.getHours()) + ":" +
+         twoDigit(rtc.getMinutes()) + ":" +
+         twoDigit(rtc.getSeconds());
+}
+
+String getFormattedTimeForDisplay(RTCZero rtc) {
+  return twoDigit(rtc.getHours()) + ":" +
          twoDigit(rtc.getMinutes()) + ":" +
          twoDigit(rtc.getSeconds());
 }
@@ -105,6 +122,15 @@ String twoDigit(int number)
   return String(number);
 }
 
+void printDisplay() {
+  display.fillScreen(BLACK);
+  display.setTextSize(2);
+  display.setTextColor(WHITE);
+  display.setCursor(16, 8);
+  display.print(displayText);
+  display.display();
+}
+
 void setupRTC() {
   rtc.begin();
   rtc.setHours(hours);
@@ -113,4 +139,10 @@ void setupRTC() {
   rtc.setDay(day);
   rtc.setMonth(month);
   rtc.setYear(year);
+}
+
+void setupDisplay() {
+  display.begin(SSD1306_SWITCHCAPVCC, OLED_ADDR);
+  display.clearDisplay();
+  display.display();
 }
