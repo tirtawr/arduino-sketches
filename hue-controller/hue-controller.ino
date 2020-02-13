@@ -7,6 +7,8 @@
 #include <Wire.h>
 #include <Adafruit_SSD1306.h>
 #include <Adafruit_GFX.h>
+#include <WiFiNINA.h>
+#include "secrets.h"
 
 // Pins
 const int pinEncoderBriClk = 7;
@@ -15,6 +17,15 @@ const int pinEncoderHueClk = 5;
 const int pinEncoderHueDt = 4;
 const int pinEncoderSatClk = 1;
 const int pinEncoderSatDt = 0;
+
+// Wifi
+char ssid[] = SECRET_SSID;
+char pass[] = SECRET_PASS;
+int status = WL_IDLE_STATUS;
+char serverAddress[] = "172.22.151.183";
+String username = "spy1lJe396BQfvulW7HxBbwW3LdNMYcFUvcgBQr8";
+String lightIndex = "6";
+WiFiClient client;
 
 // Display related globals
 #define OLED_ADDR   0x3C
@@ -36,6 +47,7 @@ String currentMode = "Brightness";
 
 void setup() {
   setupDisplay();
+  setupWifi();
 }
 
 void loop() {
@@ -49,22 +61,58 @@ void loop() {
 void increaseAttribute(String attribute) {
   currentMode = attribute;
   if (attribute == "Brightness") {
-    if (brightnessDisplayValue != 100) brightnessDisplayValue++;
+    if (brightnessDisplayValue != 100) brightnessDisplayValue += 10;
   } else if (attribute == "Hue") {
-    if (hueDisplayValue != 100) hueDisplayValue++;
+    if (hueDisplayValue != 100) hueDisplayValue += 10;
   } else if (attribute == "Saturation") {
-    if (saturationDisplayValue != 100) saturationDisplayValue++;
+    if (saturationDisplayValue != 100) saturationDisplayValue += 10;
   }
+  putData(generateRequestBody());
 }
 
 void decreaseAttribute(String attribute) {
   currentMode = attribute;
   if (attribute == "Brightness") {
-    if (brightnessDisplayValue != 0) brightnessDisplayValue--;
+    if (brightnessDisplayValue != 0) brightnessDisplayValue -= 10;
   } else if (attribute == "Hue") {
-    if (hueDisplayValue != 0) hueDisplayValue--;
+    if (hueDisplayValue != 0) hueDisplayValue -= 10;
   } else if (attribute == "Saturation") {
-    if (saturationDisplayValue != 0) saturationDisplayValue--;
+    if (saturationDisplayValue != 0) saturationDisplayValue -= 10;
+  }
+  putData(generateRequestBody());
+}
+
+String generateRequestBody() {
+  int brightnessRequestValue = map(brightnessDisplayValue, 0, 100, 0, 254);
+  int hueRequestValue = map(hueDisplayValue, 0, 100, 0, 65535);
+  int saturationRequestValue = map(saturationDisplayValue, 0, 100, 0, 254);
+  return String("{\"on\":true,\"bri\":") + brightnessRequestValue
+         + String(",\"hue\":") + hueRequestValue + String(",\"sat\":")
+         + saturationRequestValue + String(",\"effect\":\"none\",\"alert\":\"none\"}");
+}
+
+void putData(String body) {
+  Serial.println(body);
+  if (WiFi.status() == WL_CONNECTED) {
+    if (client.connect(serverAddress, 80)) {
+      client.println("PUT /api/" + username + "/lights/6/state HTTP/1.1");
+      client.print("Host: ");
+      client.println(serverAddress);
+      client.println("Content-type: application/json");
+      client.println("Accept: */*");
+      client.println("Cache-Control: no-cache");
+      client.print("Host: ");
+      client.println(serverAddress);
+      client.println("Accept-Encoding: gzip, deflate");
+      client.print("Content-Length: ");
+      client.println(body.length());
+      client.println("Connection: close");
+      client.println();
+      client.println(body);
+      client.println();
+    } else {
+      Serial.println("Error connecting to server");
+    }
   }
 }
 
@@ -156,4 +204,33 @@ void setupDisplay() {
   display.begin(SSD1306_SWITCHCAPVCC, OLED_ADDR);
   display.clearDisplay();
   display.display();
+}
+
+void setupWifi() {
+  Serial.println("Starting Wifi Connection");
+  while (status != WL_CONNECTED) {
+    Serial.print("Attempting to connect to SSID: ");
+    Serial.println(ssid);
+    status = WiFi.begin(ssid, pass);
+    delay(3000);
+    Serial.println("Connected!");
+    printWifiStatus();
+  }
+}
+
+void printWifiStatus() {
+  // print the SSID of the network you're attached to:
+  Serial.print("SSID: ");
+  Serial.println(WiFi.SSID());
+
+  // print your board's IP address:
+  IPAddress ip = WiFi.localIP();
+  Serial.print("IP Address: ");
+  Serial.println(ip);
+
+  // print the received signal strength:
+  long rssi = WiFi.RSSI();
+  Serial.print("signal strength (RSSI):");
+  Serial.print(rssi);
+  Serial.println(" dBm");
 }
