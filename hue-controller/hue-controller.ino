@@ -19,7 +19,6 @@ const int pinEncoderSatDt = 0;
 // Display related globals
 #define OLED_ADDR   0x3C
 Adafruit_SSD1306 display(-1);
-String displayText = "HH:MM:SS";
 
 // Encoder related globals
 Encoder brightnessEncoder(pinEncoderBriClk, pinEncoderBriDt);
@@ -30,9 +29,10 @@ Encoder saturationEncoder(pinEncoderSatClk, pinEncoderSatDt);
 long oldSaturationEncoderPosition  = -999;
 
 // Other globals
-int brightnessDisplayValue
-int hueDisplayValue
-int saturationDisplayValue
+int brightnessDisplayValue = 50;
+int hueDisplayValue = 50;
+int saturationDisplayValue = 50;
+String currentMode = "Brightness";
 
 void setup() {
   setupDisplay();
@@ -44,6 +44,28 @@ void loop() {
   checkSaturationEncoderRotation();
   updateDisplay();
   delay(4);
+}
+
+void increaseAttribute(String attribute) {
+  currentMode = attribute;
+  if (attribute == "Brightness") {
+    if (brightnessDisplayValue != 100) brightnessDisplayValue++;
+  } else if (attribute == "Hue") {
+    if (hueDisplayValue != 100) hueDisplayValue++;
+  } else if (attribute == "Saturation") {
+    if (saturationDisplayValue != 100) saturationDisplayValue++;
+  }
+}
+
+void decreaseAttribute(String attribute) {
+  currentMode = attribute;
+  if (attribute == "Brightness") {
+    if (brightnessDisplayValue != 0) brightnessDisplayValue--;
+  } else if (attribute == "Hue") {
+    if (hueDisplayValue != 0) hueDisplayValue--;
+  } else if (attribute == "Saturation") {
+    if (saturationDisplayValue != 0) saturationDisplayValue--;
+  }
 }
 
 void checkBrightnessEncoderRotation() {
@@ -58,11 +80,11 @@ void checkBrightnessEncoderRotation() {
 }
 
 void onBrightnessEncoderLeftTurn() {
-  displayText = "B-Left";
+  decreaseAttribute("Brightness");
 }
 
 void onBrightnessEncoderRightTurn() {
-  displayText = "B-Right";
+  increaseAttribute("Brightness");
 }
 
 void checkHueEncoderRotation() {
@@ -77,11 +99,11 @@ void checkHueEncoderRotation() {
 }
 
 void onHueEncoderLeftTurn() {
-  displayText = "H-Left";
+  decreaseAttribute("Hue");
 }
 
 void onHueEncoderRightTurn() {
-  displayText = "H-Right";
+  increaseAttribute("Hue");
 }
 
 void checkSaturationEncoderRotation() {
@@ -91,25 +113,42 @@ void checkSaturationEncoderRotation() {
     onSaturationEncoderLeftTurn();
   } else if (newSaturationEncoderPosition <= oldSaturationEncoderPosition - 4) {
     oldSaturationEncoderPosition = newSaturationEncoderPosition;
-    onHueEncoderRightTurn();
+    onSaturationEncoderRightTurn();
   }
 }
 
 void onSaturationEncoderLeftTurn() {
-  displayText = "S-Left";
+  decreaseAttribute("Saturation");
 }
 
 void onSaturationEncoderRightTurn() {
-  displayText = "S-Right";
+  increaseAttribute("Saturation");
 }
 
 
 void updateDisplay() {
   display.fillScreen(BLACK);
+
+  //label
+  display.setTextSize(1);
+  display.setTextColor(WHITE);
+  display.setCursor(28, 23);
+  display.print(currentMode);
+
+  //current value
+  int currentValue;
+  if (currentMode == "Brightness") {
+    currentValue = brightnessDisplayValue;
+  } else if (currentMode == "Hue") {
+    currentValue = hueDisplayValue;
+  } else if (currentMode == "Saturation") {
+    currentValue = saturationDisplayValue;
+  }
   display.setTextSize(2);
   display.setTextColor(WHITE);
-  display.setCursor(16, 8);
-  display.print(displayText);
+  display.setCursor(28, 6);
+  display.print(currentValue);
+
   display.display();
 }
 
