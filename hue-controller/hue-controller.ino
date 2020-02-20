@@ -10,6 +10,8 @@
 #include <WiFiNINA.h>
 #include "secrets.h"
 
+const bool verboseMode = false;
+
 // Pins
 const int pinEncoderBriClk = 7;
 const int pinEncoderBriDt = 6;
@@ -17,14 +19,23 @@ const int pinEncoderHueClk = 5;
 const int pinEncoderHueDt = 4;
 const int pinEncoderSatClk = 1;
 const int pinEncoderSatDt = 0;
+const int pinLightSwitch = 9;
 
 // Wifi
 char ssid[] = SECRET_SSID;
 char pass[] = SECRET_PASS;
 int status = WL_IDLE_STATUS;
-char serverAddress[] = "172.22.151.183";
-String username = "spy1lJe396BQfvulW7HxBbwW3LdNMYcFUvcgBQr8";
-String lightIndex = "6";
+
+//ITP
+char serverAddress[] = "172.22.151.184";
+String username = "JHTGeISalZfG5iyTbzIcPOmR3-926Cd2NG2Rg1v5";
+String lightIndex = "1";
+
+//Home
+//char serverAddress[] = "192.168.0.106";
+//String username = "T2TFEsYaXfbuj7PTk4SPdmsqCodk9hQyOU9Alpwi";
+//String lightIndex = "3";
+
 WiFiClient client;
 
 // Display related globals
@@ -44,18 +55,36 @@ int brightnessDisplayValue = 50;
 int hueDisplayValue = 50;
 int saturationDisplayValue = 50;
 String currentMode = "Brightness";
+bool isLightSwitchOn = false;
+bool oldisLightSwitchOn = false;
 
 void setup() {
+  setupLightSwitch();
   setupDisplay();
   setupWifi();
 }
 
 void loop() {
-  checkBrightnessEncoderRotation();
-  checkHueEncoderRotation();
-  checkSaturationEncoderRotation();
+  if (isLightSwitchOn) {
+    checkBrightnessEncoderRotation();
+    checkHueEncoderRotation();
+    checkSaturationEncoderRotation();
+  }
+  checkLightSwitch();
   updateDisplay();
+  if (verboseMode) {
+    printResponse();
+  }
+
+
   delay(4);
+}
+
+void printResponse() {
+  while (client.available()) {
+    char c = client.read();
+    Serial.write(c);
+  }
 }
 
 void increaseAttribute(String attribute) {
@@ -83,19 +112,23 @@ void decreaseAttribute(String attribute) {
 }
 
 String generateRequestBody() {
-  int brightnessRequestValue = map(brightnessDisplayValue, 0, 100, 0, 254);
-  int hueRequestValue = map(hueDisplayValue, 0, 100, 0, 65535);
-  int saturationRequestValue = map(saturationDisplayValue, 0, 100, 0, 254);
-  return String("{\"on\":true,\"bri\":") + brightnessRequestValue
-         + String(",\"hue\":") + hueRequestValue + String(",\"sat\":")
-         + saturationRequestValue + String(",\"effect\":\"none\",\"alert\":\"none\"}");
+  if (isLightSwitchOn) {
+    int brightnessRequestValue = map(brightnessDisplayValue, 0, 100, 0, 254);
+    int hueRequestValue = map(hueDisplayValue, 0, 100, 0, 65535);
+    int saturationRequestValue = map(saturationDisplayValue, 0, 100, 0, 254);
+    return String("{\"on\":true,\"bri\":") + brightnessRequestValue
+           + String(",\"hue\":") + hueRequestValue + String(",\"sat\":")
+           + saturationRequestValue + String(",\"effect\":\"none\",\"alert\":\"none\"}");
+  } else {
+    return "{\"on\":false}";
+  }
 }
 
 void putData(String body) {
   Serial.println(body);
   if (WiFi.status() == WL_CONNECTED) {
     if (client.connect(serverAddress, 80)) {
-      client.println("PUT /api/" + username + "/lights/6/state HTTP/1.1");
+      client.println("PUT /api/" + username + "/lights/" + lightIndex + "/state HTTP/1.1");
       client.print("Host: ");
       client.println(serverAddress);
       client.println("Content-type: application/json");
@@ -125,6 +158,18 @@ void checkBrightnessEncoderRotation() {
     oldBrightnessEncoderPosition = newBrightnessEncoderPosition;
     onBrightnessEncoderRightTurn();
   }
+}
+
+void checkLightSwitch() {
+  if (digitalRead(pinLightSwitch) == HIGH) {
+    isLightSwitchOn = false;
+  } else {
+    isLightSwitchOn = true;
+  }
+  if (isLightSwitchOn != oldisLightSwitchOn) {
+    putData(generateRequestBody());
+  }
+  oldisLightSwitchOn = isLightSwitchOn;
 }
 
 void onBrightnessEncoderLeftTurn() {
@@ -177,25 +222,34 @@ void onSaturationEncoderRightTurn() {
 void updateDisplay() {
   display.fillScreen(BLACK);
 
-  //label
-  display.setTextSize(1);
-  display.setTextColor(WHITE);
-  display.setCursor(28, 23);
-  display.print(currentMode);
+  if (isLightSwitchOn) {
+    //label
+    display.setTextSize(1);
+    display.setTextColor(WHITE);
+    display.setCursor(28, 23);
+    display.print(currentMode);
 
-  //current value
-  int currentValue;
-  if (currentMode == "Brightness") {
-    currentValue = brightnessDisplayValue;
-  } else if (currentMode == "Hue") {
-    currentValue = hueDisplayValue;
-  } else if (currentMode == "Saturation") {
-    currentValue = saturationDisplayValue;
+    //current value
+    int currentValue;
+    if (currentMode == "Brightness") {
+      currentValue = brightnessDisplayValue;
+    } else if (currentMode == "Hue") {
+      currentValue = hueDisplayValue;
+    } else if (currentMode == "Saturation") {
+      currentValue = saturationDisplayValue;
+    }
+    display.setTextSize(2);
+    display.setTextColor(WHITE);
+    display.setCursor(28, 6);
+    display.print(currentValue);
+  } else {
+    display.setTextSize(2);
+    display.setTextColor(WHITE);
+    display.setCursor(28, 6);
+    display.print("OFF");
   }
-  display.setTextSize(2);
-  display.setTextColor(WHITE);
-  display.setCursor(28, 6);
-  display.print(currentValue);
+
+
 
   display.display();
 }
@@ -204,6 +258,10 @@ void setupDisplay() {
   display.begin(SSD1306_SWITCHCAPVCC, OLED_ADDR);
   display.clearDisplay();
   display.display();
+}
+
+void setupLightSwitch() {
+  pinMode(pinLightSwitch, INPUT_PULLUP);
 }
 
 void setupWifi() {
