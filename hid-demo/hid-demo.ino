@@ -13,4 +13,3 @@ void loop() {
   Keyboard.write(keyCode);
   delay(500);
 }
-yupqu
