@@ -7,16 +7,19 @@ const int buttonLeftPin = 13;
 const int buttonRightPin = 14;
 const int ledPin = 6;
 
-// the intervals in a major and natural minor scale:
-int majorScale[] = {2, 2, 1, 2, 2, 2, 1};
-int naturalMinorScale[] = {2, 1, 2, 2, 1, 2, 2};
-// an array to hold the final notes of the scale:
-int scale[8];
+//int majorChord[] = {0, 4, 7};
+//int minorChord[] = {0, 3, 7};
+//int diminishedChord[] = {0, 3, 6};
+//int augmentedChord[] = {0, 4, 8};
+//int majorSeventhChord[] = {0, 4, 8, 11};
+int chordSize = 3;
+int chord[] = {0, 4, 7};
 
 // start with middle C:
-int tonic = pitchC4;
+//int tonic = pitchC4;
+int tonic = 0;
 // note to play:
-int noteValue = tonic;
+int baseNote = tonic;
 
 // previous state of the button:
 int lastbuttonMainState = HIGH;
@@ -24,8 +27,11 @@ int lastbuttonUpState = HIGH;
 int lastbuttonDownState = HIGH;
 int lastbuttonLeftState = HIGH;
 int lastbuttonRightState = HIGH;
+unsigned int previousMillis;
+unsigned int interval = 100;
 
 boolean isTonePlaying = false;
+int currentOffsetIndex = 0;
 
 void setup() {
   Serial.begin(9600);
@@ -35,20 +41,61 @@ void setup() {
   pinMode(buttonLeftPin, INPUT_PULLUP);
   pinMode(buttonRightPin, INPUT_PULLUP);
   pinMode(ledPin, OUTPUT);
-  // fill the scale array with the scale you want:
-  // start with the initial note:
-  scale[0] = tonic;
-  int note = scale[0];
-  // iterate over the intervals, adding each to the next note
-  // in the scale. You can change major to naturalMinor
-  // if you want that kind of scale instead:
-  for (int n = 0; n < 7; n++) {
-    note = note + majorScale[n];
-    scale[n + 1] = note;
-  }
 }
 
 void loop() {
+  checkButtonStates();
+
+  unsigned long currentMillis = millis();
+  if (currentMillis - previousMillis >= interval) {
+    previousMillis = currentMillis;
+    if (digitalRead(buttonMainPin) == LOW) {
+      playNote();
+    }
+  }
+}
+
+void playNote() {
+  sendNoteOnEvent(baseNote + getNextOffset(chord));
+}
+
+void onButtonMainPressed() {
+  digitalWrite(ledPin, HIGH);
+}
+
+void onButtonMainReleased() {
+  digitalWrite(ledPin, LOW);
+}
+
+void onButtonUpPressed() {
+  baseNote++;
+  guardNoteTopThreshold();
+}
+
+void onButtonUpReleased() { }
+
+void onButtonDownPressed() {
+  baseNote--;
+  guardNoteBottomThreshold();
+}
+
+void onButtonDownReleased() { }
+
+void onButtonLeftPressed() {
+  baseNote -= 12;
+  guardNoteBottomThreshold();
+}
+
+void onButtonLeftReleased() { }
+
+void onButtonRightPressed() {
+  baseNote += 12;
+  guardNoteTopThreshold();
+}
+
+void onButtonRightReleased() { }
+
+void checkButtonStates() {
   debounce();
   int buttonMainState = digitalRead(buttonMainPin);
   int buttonUpState = digitalRead(buttonUpPin);
@@ -105,83 +152,13 @@ void loop() {
   }
 }
 
-void onButtonMainPressed() {
-  digitalWrite(ledPin, HIGH);
-  // pick a random note in the scale:
-  noteValue = scale[random(8)];
-  sendNoteOnEvent(noteValue);
-  isTonePlaying = true;
+int getNextOffset(int arr[]) {
+  currentOffsetIndex++;
+  if (currentOffsetIndex >= chordSize) currentOffsetIndex = 0;
+  return arr[currentOffsetIndex];
 }
 
-void onButtonMainReleased() {
-  digitalWrite(ledPin, LOW);
-  sendNoteOffEvent(noteValue);
-  isTonePlaying = false;
-}
-
-void onButtonUpPressed() {
-  if (isTonePlaying) {
-    sendNoteOnEvent(noteValue);
-    sendNoteOnEvent(noteValue + 4);
-    sendNoteOnEvent(noteValue + 7);
-  }
-}
-
-void onButtonUpReleased() {
-  sendNoteOffEvent(noteValue);
-  sendNoteOffEvent(noteValue + 4);
-  sendNoteOffEvent(noteValue + 7);
-}
-
-void onButtonDownPressed() {
-  if (isTonePlaying) {
-    sendNoteOnEvent(noteValue);
-    sendNoteOnEvent(noteValue + 3);
-    sendNoteOnEvent(noteValue + 7);
-  }
-}
-
-void onButtonDownReleased() {
-  sendNoteOffEvent(noteValue);
-  sendNoteOffEvent(noteValue + 3);
-  sendNoteOffEvent(noteValue + 7);
-}
-
-void onButtonLeftPressed() {
-  if (isTonePlaying) {
-    sendNoteOnEvent(noteValue);
-    sendNoteOnEvent(noteValue + 3);
-    sendNoteOnEvent(noteValue + 6);
-  }
-}
-
-void onButtonLeftReleased() {
-  sendNoteOffEvent(noteValue);
-  sendNoteOffEvent(noteValue + 3);
-  sendNoteOffEvent(noteValue + 6);
-}
-
-void onButtonRightPressed() {
-  if (isTonePlaying) {
-    sendNoteOnEvent(noteValue);
-    sendNoteOnEvent(noteValue + 4);
-    sendNoteOnEvent(noteValue + 8);
-  }
-}
-
-void onButtonRightReleased() {
-  sendNoteOffEvent(noteValue);
-  sendNoteOffEvent(noteValue + 4);
-  sendNoteOffEvent(noteValue + 8);
-}
-
-// send a 3-byte midi message
 void sendMidiCommand(byte cmd, byte data1, byte  data2) {
-  // First parameter is the event type (top 4 bits of the command byte).
-  // Second parameter is command byte combined with the channel.
-  // Third parameter is the first data byte
-  // Fourth parameter second data byte
-
   midiEventPacket_t midiMsg = {cmd >> 4, cmd, data1, data2};
   MidiUSB.sendMIDI(midiMsg);
 }
@@ -192,6 +169,14 @@ void sendNoteOnEvent(byte note) {
 
 void sendNoteOffEvent(byte note) {
   sendMidiCommand(0x80, note, 0);
+}
+
+void guardNoteBottomThreshold() {
+  if(baseNote < 0) baseNote = 0;
+}
+
+void guardNoteTopThreshold() {
+  if(baseNote + 12 > 127) baseNote = 115;
 }
 
 void debounce() {
