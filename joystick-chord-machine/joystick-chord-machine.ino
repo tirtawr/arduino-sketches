@@ -1,11 +1,16 @@
 #include <MIDIUSB.h>
 #include <pitchToNote.h>
-const int buttonMainPin = 9;
-const int buttonUpPin = 12;
-const int buttonDownPin = 11;
-const int buttonLeftPin = 13;
-const int buttonRightPin = 14;
-const int ledPin = 6;
+#include "Interval.h"
+
+boolean turnOffNotesAfterPlaying = false;
+
+int potentiometerPin = 3; // Analog
+const int buttonMainPin = 5; // Digital
+const int buttonUpPin = 12; // Digital
+const int buttonDownPin = 11; // Digital
+const int buttonLeftPin = 13; // Digital
+const int buttonRightPin = 14; // Digital
+const int ledPin = 6; // Digital
 
 //int majorChord[] = {0, 4, 7};
 //int minorChord[] = {0, 3, 7};
@@ -18,9 +23,9 @@ int chordSize = 5;
 int chord[] = {0, 4, 7, 11, 14};
 
 //int tonic = pitchC4;
-int tonic = 0;
-// note to play:
-int baseNote = tonic;
+int tonic = 0; // Starting tonic
+int baseNote = tonic; // Base note for chord progression
+int currentNote = baseNote; // Current note that is playing
 
 // previous state of the button:
 int lastbuttonMainState = HIGH;
@@ -29,10 +34,12 @@ int lastbuttonDownState = HIGH;
 int lastbuttonLeftState = HIGH;
 int lastbuttonRightState = HIGH;
 unsigned int previousMillis;
-unsigned int interval = 150;
+unsigned int noteIntervalValue = 0;
 
 boolean isTonePlaying = false;
 int currentOffsetIndex = 0;
+Interval ledTimeout;
+Interval noteOffTimeout;
 
 void setup() {
   Serial.begin(9600);
@@ -49,10 +56,11 @@ void loop() {
   checkButtonStates();
   guardNoteTopThreshold();
   guardNoteBottomThreshold();
-
-
+  updateNoteIntervalValue();
+  ledTimeout.check();
+  noteOffTimeout.check();
   unsigned long currentMillis = millis();
-  if (currentMillis - previousMillis >= interval) {
+  if (currentMillis - previousMillis >= noteIntervalValue) {
     previousMillis = currentMillis;
     if (isPressed(buttonMainPin)) {
       playNote();
@@ -61,26 +69,23 @@ void loop() {
 }
 
 void playNote() {
-  sendNoteOnEvent(baseNote + getNextOffset(chord));
+  currentNote = baseNote + getNextOffset(chord);
+  sendNoteOnEvent();
 }
 
-void onButtonMainPressed() {
-  digitalWrite(ledPin, HIGH);
-}
-
-void onButtonMainReleased() {
+void turnOffLed() {
   digitalWrite(ledPin, LOW);
 }
 
-void onButtonUpPressed() {
-  baseNote++;
-}
+void onButtonMainPressed() { }
+
+void onButtonMainReleased() { }
+
+void onButtonUpPressed() { }
 
 void onButtonUpReleased() { }
 
-void onButtonDownPressed() {
-  baseNote--;
-}
+void onButtonDownPressed() { }
 
 void onButtonDownReleased() { }
 
@@ -95,6 +100,12 @@ void onButtonRightPressed() {
 }
 
 void onButtonRightReleased() { }
+
+void updateNoteIntervalValue() {
+  int sensorValue = analogRead(potentiometerPin);
+  noteIntervalValue = linearMap(sensorValue, 0, 1023, 800, 50);
+  Serial.println(noteIntervalValue);
+}
 
 void checkButtonStates() {
   debounce();
@@ -157,10 +168,21 @@ int getNextOffset(int arr[]) {
   currentOffsetIndex++;
   if (currentOffsetIndex >= chordSize) {
     currentOffsetIndex = 0;
+    int risingCutoff = 66;
+    int loweringCutoff = 33;
+    // Give higher chance to go up if up button is held down
+    // and give higher chance to go down if down button is held down
+    if (isPressed(buttonUpPin)) {
+      risingCutoff = 20;
+      loweringCutoff = 0;
+    } else if (isPressed(buttonDownPin)) {
+      risingCutoff = 100;
+      loweringCutoff = 80;
+    }
     int randomNumber = random(100);
-    if (randomNumber > 66) {
+    if (randomNumber > risingCutoff) {
       baseNote += random(8);
-    } else if (randomNumber < 33) {
+    } else if (randomNumber < loweringCutoff) {
       baseNote -= random(8);
     }
   }
@@ -172,12 +194,18 @@ void sendMidiCommand(byte cmd, byte data1, byte  data2) {
   MidiUSB.sendMIDI(midiMsg);
 }
 
-void sendNoteOnEvent(byte note) {
-  sendMidiCommand(0x90, note, 0x7F);
+void sendNoteOnEvent() {
+  sendMidiCommand(0x90, currentNote, 0x7F);
+  digitalWrite(ledPin, HIGH);
+  ledTimeout.setTimeout(turnOffLed, noteIntervalValue / 2);
+  if (turnOffNotesAfterPlaying) {
+    noteOffTimeout.setTimeout(sendNoteOffEvent, noteIntervalValue * 8 / 10);
+  }
+
 }
 
-void sendNoteOffEvent(byte note) {
-  sendMidiCommand(0x80, note, 0);
+void sendNoteOffEvent() {
+  sendMidiCommand(0x80, currentNote, 0);
 }
 
 void guardNoteBottomThreshold() {
@@ -190,6 +218,15 @@ void guardNoteTopThreshold() {
 
 boolean isPressed(int pin) {
   return digitalRead(pin) == LOW;
+}
+
+//int logarithmicMap(value, valueFloor, valueCeiling, targetFloor, targetCeiling) {
+//  map(sensorValue, 0, 1023, 800, 50);
+//}
+
+int linearMap(int value, int valueFloor, int valueCeiling, int targetFloor, int targetCeiling) {
+  int linearTarget = (value - valueFloor) * (targetCeiling - targetFloor) / (valueCeiling - valueFloor) + targetFloor;
+  return linearTarget;
 }
 
 void debounce() {

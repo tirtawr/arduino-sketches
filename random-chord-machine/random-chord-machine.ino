@@ -1,11 +1,11 @@
 #include <MIDIUSB.h>
 #include <pitchToNote.h>
-const int buttonMainPin = 9;
+const int buttonMainPin = 6;
 const int buttonUpPin = 12;
 const int buttonDownPin = 11;
 const int buttonLeftPin = 13;
 const int buttonRightPin = 14;
-const int ledPin = 6;
+const int ledPin = 5;
 
 // the intervals in a major and natural minor scale:
 int majorScale[] = {2, 2, 1, 2, 2, 2, 1};
@@ -187,6 +187,7 @@ void sendMidiCommand(byte cmd, byte data1, byte  data2) {
 }
 
 void sendNoteOnEvent(byte note) {
+  Serial.println("sendNoteOnEvent");
   sendMidiCommand(0x90, note, 0x7F);
 }
 
