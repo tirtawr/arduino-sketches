@@ -4,7 +4,8 @@
 #define STEPPER_PIN_2 2
 #define STEPPER_PIN_3 3
 #define STEPPER_PIN_4 4
-#define STEPPER_STEPS_PER_REVOLUTION 2038
+#define STEPPER_STEPS_PER_REVOLUTION 720
+//#define STEPPER_STEPS_PER_REVOLUTION 2038
 
 #define BUTTON_PIN 0
 
@@ -13,7 +14,7 @@
 int prevButtonState = 0;
 int currButtonState = 0;
 
-int currStep = ((STEPPER_STEPS_PER_REVOLUTION / 360) * 180);
+int currStep = 0;
 
 Stepper sunStepper = Stepper(STEPPER_STEPS_PER_REVOLUTION, STEPPER_PIN_1, STEPPER_PIN_3, STEPPER_PIN_2, STEPPER_PIN_4);
 
@@ -28,10 +29,12 @@ void loop() {
   currButtonState = digitalRead(BUTTON_PIN);
   if (currButtonState == LOW && prevButtonState == HIGH) {
     Serial.println("PRESSED");
-    rotateTo(30);
+    currStep = 0;
+    rotateTo(270);
   }
   prevButtonState = currButtonState;
-  delay(DEBOUNCE_VALUE);
+  sunStepper.step(720);
+  delay(2000);
 }
 
 // Rotate needle to a specific point in the clock face
